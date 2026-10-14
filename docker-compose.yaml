@@ -1,0 +1,25 @@
+# The denv quickstart world: Postgres with data, an agent box that is never
+# root, and a verifier that grades a file the agent writes.
+# Push to this repo and denv deploys `alpha` from this file.
+x-denv:
+  kind: rl-environment
+  agent:
+    service: box
+  verifier:
+    image: busybox:1.36
+    command: ["sh", "-c", "[ \"$(cat /submission/home/agent/answer.txt)\" = 42 ] && echo 1 > /logs/verifier/reward.txt || echo 0 > /logs/verifier/reward.txt"]
+    collect: ["/home/agent/answer.txt"]
+services:
+  db:
+    image: postgres:16-alpine
+    environment: { POSTGRES_PASSWORD: world }
+    volumes: ["pg:/var/lib/postgresql/data"]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U postgres"], interval: 2s, retries: 30 }
+  box:
+    image: python:3.12-slim
+    user: "1000:1000"
+    command: ["sleep", "infinity"]
+    environment: { HOME: /home/agent, PGHOST: db, PGPASSWORD: world }
+    volumes: ["home:/home/agent"]
+    depends_on: [db]
+volumes: { pg: {}, home: {} }
